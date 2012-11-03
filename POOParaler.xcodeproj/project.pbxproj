@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		4B669D9316415A53001B0A32 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4B669D9216415A53001B0A32 /* main.cpp */; };
 		4B669D9516415A53001B0A32 /* POOParaler.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B669D9416415A53001B0A32 /* POOParaler.1 */; };
+		4B669DB716415B49001B0A32 /* Makefile in Sources */ = {isa = PBXBuildFile; fileRef = 4B669D9C16415B49001B0A32 /* Makefile */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -28,6 +29,32 @@
 		4B669D8E16415A53001B0A32 /* POOParaler */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = POOParaler; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B669D9216415A53001B0A32 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		4B669D9416415A53001B0A32 /* POOParaler.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = POOParaler.1; sourceTree = "<group>"; };
+		4B669D9C16415B49001B0A32 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		4B669D9D16415B49001B0A32 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		4B669D9E16415B49001B0A32 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
+		4B669D9F16415B49001B0A32 /* mpi-ext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mpi-ext.h"; sourceTree = "<group>"; };
+		4B669DA016415B49001B0A32 /* mpi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mpi.h; sourceTree = "<group>"; };
+		4B669DA116415B49001B0A32 /* mpi.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mpi.h.in; sourceTree = "<group>"; };
+		4B669DA216415B49001B0A32 /* mpi_portable_platform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mpi_portable_platform.h; sourceTree = "<group>"; };
+		4B669DA316415B49001B0A32 /* mpi_portable_platform.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mpi_portable_platform.h.in; sourceTree = "<group>"; };
+		4B669DA416415B49001B0A32 /* mpif-common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mpif-common.h"; sourceTree = "<group>"; };
+		4B669DA516415B49001B0A32 /* mpif-config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mpif-config.h"; sourceTree = "<group>"; };
+		4B669DA616415B49001B0A32 /* mpif-config.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mpif-config.h.in"; sourceTree = "<group>"; };
+		4B669DA716415B49001B0A32 /* mpif-mpi-io.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mpif-mpi-io.h"; sourceTree = "<group>"; };
+		4B669DA816415B49001B0A32 /* mpif.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mpif.h; sourceTree = "<group>"; };
+		4B669DA916415B49001B0A32 /* mpif.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mpif.h.in; sourceTree = "<group>"; };
+		4B669DAB16415B49001B0A32 /* constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constants.h; sourceTree = "<group>"; };
+		4B669DAC16415B49001B0A32 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		4B669DAD16415B49001B0A32 /* memchecker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = memchecker.h; sourceTree = "<group>"; };
+		4B669DAE16415B49001B0A32 /* totalview.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = totalview.h; sourceTree = "<group>"; };
+		4B669DAF16415B49001B0A32 /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
+		4B669DB016415B49001B0A32 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
+		4B669DB116415B49001B0A32 /* version.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = version.h.in; sourceTree = "<group>"; };
+		4B669DB216415B49001B0A32 /* ompi_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ompi_config.h; sourceTree = "<group>"; };
+		4B669DB316415B49001B0A32 /* ompi_config.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ompi_config.h.in; sourceTree = "<group>"; };
+		4B669DB416415B49001B0A32 /* stamp-h3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "stamp-h3"; sourceTree = "<group>"; };
+		4B669DB516415B49001B0A32 /* stamp-h4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "stamp-h4"; sourceTree = "<group>"; };
+		4B669DB616415B49001B0A32 /* stamp-h5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "stamp-h5"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,10 +87,52 @@
 		4B669D9116415A53001B0A32 /* POOParaler */ = {
 			isa = PBXGroup;
 			children = (
+				4B669D9B16415B49001B0A32 /* mpi */,
 				4B669D9216415A53001B0A32 /* main.cpp */,
 				4B669D9416415A53001B0A32 /* POOParaler.1 */,
 			);
 			path = POOParaler;
+			sourceTree = "<group>";
+		};
+		4B669D9B16415B49001B0A32 /* mpi */ = {
+			isa = PBXGroup;
+			children = (
+				4B669D9C16415B49001B0A32 /* Makefile */,
+				4B669D9D16415B49001B0A32 /* Makefile.am */,
+				4B669D9E16415B49001B0A32 /* Makefile.in */,
+				4B669D9F16415B49001B0A32 /* mpi-ext.h */,
+				4B669DA016415B49001B0A32 /* mpi.h */,
+				4B669DA116415B49001B0A32 /* mpi.h.in */,
+				4B669DA216415B49001B0A32 /* mpi_portable_platform.h */,
+				4B669DA316415B49001B0A32 /* mpi_portable_platform.h.in */,
+				4B669DA416415B49001B0A32 /* mpif-common.h */,
+				4B669DA516415B49001B0A32 /* mpif-config.h */,
+				4B669DA616415B49001B0A32 /* mpif-config.h.in */,
+				4B669DA716415B49001B0A32 /* mpif-mpi-io.h */,
+				4B669DA816415B49001B0A32 /* mpif.h */,
+				4B669DA916415B49001B0A32 /* mpif.h.in */,
+				4B669DAA16415B49001B0A32 /* ompi */,
+				4B669DB216415B49001B0A32 /* ompi_config.h */,
+				4B669DB316415B49001B0A32 /* ompi_config.h.in */,
+				4B669DB416415B49001B0A32 /* stamp-h3 */,
+				4B669DB516415B49001B0A32 /* stamp-h4 */,
+				4B669DB616415B49001B0A32 /* stamp-h5 */,
+			);
+			path = mpi;
+			sourceTree = "<group>";
+		};
+		4B669DAA16415B49001B0A32 /* ompi */ = {
+			isa = PBXGroup;
+			children = (
+				4B669DAB16415B49001B0A32 /* constants.h */,
+				4B669DAC16415B49001B0A32 /* Makefile.am */,
+				4B669DAD16415B49001B0A32 /* memchecker.h */,
+				4B669DAE16415B49001B0A32 /* totalview.h */,
+				4B669DAF16415B49001B0A32 /* types.h */,
+				4B669DB016415B49001B0A32 /* version.h */,
+				4B669DB116415B49001B0A32 /* version.h.in */,
+			);
+			path = ompi;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -118,6 +187,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4B669D9316415A53001B0A32 /* main.cpp in Sources */,
+				4B669DB716415B49001B0A32 /* Makefile in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -178,6 +248,7 @@
 		4B669D9916415A53001B0A32 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = mpi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -185,6 +256,7 @@
 		4B669D9A16415A53001B0A32 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = mpi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
