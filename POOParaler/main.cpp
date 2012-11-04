@@ -22,6 +22,9 @@ int bestResult = -1;
 
 long long steps = 0;
 
+int myProcessRank;
+int numProcesses;
+
 //-----------------------------------------------
 
 struct Rect
@@ -312,6 +315,21 @@ struct Item
 
 //-----------------------------------------------
 
+void sendWorkRequest() {
+    
+    int destination = myProcessRank;
+    
+    while (destination==myProcessRank) {
+        
+        destination = rand()%numProcesses;
+        if (destination!=myProcessRank) {
+            
+            int dummy=0;
+            MPI_Send(&dummy, 1, MPI_INT, destination, MSG_WORK_REQUEST, MPI_COMM_WORLD);
+        }
+    }
+}
+
 void processUsingStack2(Field field) {
     
     std::list<Item*> stack;
@@ -320,11 +338,14 @@ void processUsingStack2(Field field) {
     
     stack.push_back(new Item(new Field(field), 0));
     
-    while (stack.size()) {
+    ///////
+    
+    while (true) {
         
         counter++;
         if ((counter % CHECK_MSG_AMOUNT)==0)
         {
+            counter=1;
             int flag = 0;
             MPI_Status status;
             
@@ -346,6 +367,9 @@ void processUsingStack2(Field field) {
                 case MSG_WORK_NOWORK : // odmitnuti zadosti o praci
                     // zkusit jiny proces
                     // a nebo se prepnout do pasivniho stavu a cekat na token
+                    if (stack.size()==0) {
+                        sendWorkRequest();
+                    }
                     break
                 case MSG_TOKEN : //ukoncovaci token, prijmout a nasledne preposlat
                     // - bily nebo cerny v zavislosti na stavu procesu
@@ -356,78 +380,92 @@ void processUsingStack2(Field field) {
                     //mam-li reseni, odeslu procesu 0
                     //nasledne ukoncim spoji cinnost
                     //jestlize se meri cas, nezapomen zavolat koncovou barieru MPI_Barrier (MPI_COMM_WORLD)
-                    MPI_Finalize();
-                    exit (0);
+                    return;
                     break;
                 default : chyba("neznamy typ zpravy"); break;
                 }
             }
         }
         
-        Item* pItem = stack.back();
-        Field* pField = pItem->field;
+        ////////
         
-        Rect* pRectToTry = NULL;
-        
-        if (pItem->index==0) {
-            pRectToTry = new Rect(3, 3);
-        }
-        else if(pItem->index==1) {
-            pRectToTry = new Rect(2, 4);
-        }
-        else if(pItem->index==2) {
-            pRectToTry = new Rect(4, 2);
-        }
-        else if(pItem->index==3) {
-            pRectToTry = new Rect(1, 5);
-        }
-        else if(pItem->index==4) {
-            pRectToTry = new Rect(5, 1);
-        } 
-        else {
-            stack.pop_back();
-            delete pItem;
-        }
-        
-        
-        if (pRectToTry) {
+        if (stack.size()) {
             
-            Field* pNewField = new Field(*pField);
+            Item* pItem = stack.back();
+            Field* pField = pItem->field;
             
-            //send this to somebody who has requested some work
-            if (workRequests.size()) {
-                
-                int desctination = workRequests.front();
-                pItem->send(desctination);
-                workRequests.pop_front();
-                delete pNewField;
+            Rect* pRectToTry = NULL;
+            
+            if (pItem->index==0) {
+                pRectToTry = new Rect(3, 3);
+            }
+            else if(pItem->index==1) {
+                pRectToTry = new Rect(2, 4);
+            }
+            else if(pItem->index==2) {
+                pRectToTry = new Rect(4, 2);
+            }
+            else if(pItem->index==3) {
+                pRectToTry = new Rect(1, 5);
+            }
+            else if(pItem->index==4) {
+                pRectToTry = new Rect(5, 1);
             }
             else {
+                stack.pop_back();
+                delete pItem;
+            }
+            
+            
+            if (pRectToTry) {
                 
-                if(pNewField->addRect(*pRectToTry)) {
+                Field* pNewField = new Field(*pField);
+                
+                //send this to somebody who has requested some work
+                if (workRequests.size()) {
                     
-                    stack.push_back(new Item(pNewField, 0));
-                }
-                else {
+                    int desctination = workRequests.front();
+                    pItem->send(desctination);
+                    workRequests.pop_front();
                     delete pNewField;
                 }
-            }
-            
-            
-            pItem->index++;
-            delete pRectToTry;
-        }
-        
-        //empty stack? request work and send no work to all work requests
-        if (stack.size()==0) {
-            
-            for (unsigned int i=0; i<workRequests.size(); i+=) {
+                else {
+                    
+                    if(pNewField->addRect(*pRectToTry)) {
+                        
+                        stack.push_back(new Item(pNewField, 0));
+                    }
+                    else {
+                        delete pNewField;
+                    }
+                }
                 
-                //send no work
+                
+                pItem->index++;
+                delete pRectToTry;
             }
             
-            //request work
+            //empty stack? request work and send no work to all work requests
+            if (stack.size()==0) {
+                
+                while (workRequests.size()) {
+                    
+                    int destination = workRequests.front();
+                    
+                    //send no work
+                    int dummy=0;
+                    MPI_Send(&dummy, 1, MPI_INT, destination, MSG_WORK_NOWORK, MPI_COMM_WORLD);
+                    
+                    workRequests.pop_front();
+                }
+                
+                //request work
+                int dummy=0;
+                MPI_Send(&dummy, 1, MPI_INT, destination, MSG_WORK_REQUEST, MPI_COMM_WORLD);
+            }
+            
         }
+
         
     }
     
@@ -438,9 +476,6 @@ void processUsingStack2(Field field) {
 int main(int argc, const char * argv[])
 {
     
-    int myProcessRank;
-    int numProcesses;
-    
     MPI_Init(&argc, &argv);
     
     /* find out process rank */
@@ -448,6 +483,8 @@ int main(int argc, const char * argv[])
     
     /* find out number of processes */
     MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
+    
+    srand(myProcessRank);
     
     Field field = Field(6, 5);
     
