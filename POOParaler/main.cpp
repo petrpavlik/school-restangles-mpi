@@ -10,6 +10,8 @@
 #include <list>
 #include "mpi.h"
 
+#define dprintf printf
+
 #define CHECK_MSG_AMOUNT  100
 
 #define MSG_WORK_REQUEST 1000
@@ -18,12 +20,20 @@
 #define MSG_TOKEN        1003
 #define MSG_FINISH       1004
 
+#define FIELD_WIDTH 6
+#define FIELD_HEIGHT 5
+
+#define TOKEN_COLOR_WHITE 0
+#define TOKEN_COLOR_BLACK 1
+
 int bestResult = -1;
 
 long long steps = 0;
 
 int myProcessRank;
 int numProcesses;
+
+bool waitingForWork = false;
 
 //-----------------------------------------------
 
@@ -128,16 +138,37 @@ public:
         //cannot fit it anywhere
         if (containsRequiredRects()) {
             
-            print();
+            //print();
             
             int result = getNumberOfGaps();
             
             if (bestResult == -1 || result < bestResult) {
                 bestResult = result;
-                std::cout << "best result so far " << bestResult << std::endl;
+                //std::cout << "best result so far " << bestResult << std::endl;
             }
         }
         return false;
+    }
+    
+    unsigned int getWidth() {
+        return width;
+    }
+    
+    unsigned int getHeight() {
+        return height;
+    }
+    
+    char* getArray() {
+        return array;
+    }
+    
+    void setArray(char* array) {
+        
+        if (this->array) {
+            delete[] this->array;
+        }
+        
+        this->array = array;
     }
     
 private:
@@ -282,31 +313,57 @@ struct Item
     
     void send(int destination) {
         
-        int bufferSize = field->width * field->height + sizeof(int);
+        dprintf("p%d: did start sending work\n", myProcessRank);
+        int bufferSize = field->getWidth() * field->getHeight() + sizeof(int);
         char* buffer = new char[bufferSize];
         
         int position = 0;
         MPI_Pack(&index, 1, MPI_INT, buffer, bufferSize, &position, MPI_COMM_WORLD);
-        MPI_Pack(field->array, (field->width * field->height), MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
+        MPI_Pack(field->getArray(), (field->getWidth() * field->getHeight()), MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
+        
+        for (unsigned int i=0; i<bufferSize; i++) {
+            dprintf("%d", buffer[i]);
+        }
+        dprintf("\n");
         
         MPI_Send(buffer, position, MPI_PACKED, destination, MSG_WORK_SENT, MPI_COMM_WORLD);
         
         delete[] buffer;
+        
+        dprintf("p%d: did finish sending work\n", myProcessRank);
     }
     
     void receive() {
         
-        int bufferSize = field->width * field->height + sizeof(int);
+        dprintf("p%d: did start receiving work\n", myProcessRank);
+        
+        field = new Field(FIELD_WIDTH, FIELD_HEIGHT);
+        
+        int bufferSize = field->getWidth() * field->getHeight() + sizeof(int);
         char* buffer = new char[bufferSize];
         
         int position = 0;
         
+        MPI_Status status;
         MPI_Recv(buffer, bufferSize, MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         
-        MPI_Unpack(buffer, bufferSize, &position, &index, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Unpack(buffer, bufferSize, &position, field->array, (field->width * field->height), MPI_CHAR, MPI_COMM_WORLD);
+        for (unsigned int i=0; i<bufferSize; i++) {
+            dprintf("%d", buffer[i]);
+        }
+        dprintf("\n");
         
-        delete[] buffer;
+        MPI_Unpack(buffer, bufferSize, &position, &index, 1, MPI_INT, MPI_COMM_WORLD);
+        
+        //dprintf("p%d: did unpack index %d\n", myProcessRank, index);
+        
+        char* tmpArray = new char[field->getWidth() * field->getHeight()];
+        MPI_Unpack(buffer, bufferSize, &position, tmpArray, (field->getWidth() * field->getHeight()), MPI_CHAR, MPI_COMM_WORLD);
+        
+        //dprintf("a\n");
+        
+        field->setArray(tmpArray);
+        
+        dprintf("p%d: did finish receiving work\n", myProcessRank);
     }
     
     Field* field;
@@ -316,6 +373,10 @@ struct Item
 //-----------------------------------------------
 
 void sendWorkRequest() {
+    
+    if (waitingForWork) {
+        return;
+    }
     
     int destination = myProcessRank;
     
@@ -328,6 +389,29 @@ void sendWorkRequest() {
             MPI_Send(&dummy, 1, MPI_INT, destination, MSG_WORK_REQUEST, MPI_COMM_WORLD);
         }
     }
+    
+    waitingForWork = true;
+}
+
+void receiveDummy() {
+    
+    int dummy;
+    MPI_Status status;
+    MPI_Recv(&dummy, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+}
+
+void sendToken(int destination, char tokenColor) {
+    
+    int bufferSize = sizeof(chat) + sizeof(int);
+    char* buffer = new char[bufferSize];
+    
+    int position = 0;
+    MPI_Pack(&tokenColor, 1, MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
+    MPI_Pack(&bestResult, 1, MPI_INT, buffer, bufferSize, &position, MPI_COMM_WORLD);
+    
+    MPI_Send(buffer, position, MPI_PACKED, destination, MSG_WORK_SENT, MPI_COMM_WORLD);
+    
+    delete[] buffer;
 }
 
 void processUsingStack2(Field field) {
@@ -336,7 +420,13 @@ void processUsingStack2(Field field) {
     long long counter=0;
     std::list<int> workRequests;
     
-    stack.push_back(new Item(new Field(field), 0));
+    if (myProcessRank==0) {
+        stack.push_back(new Item(new Field(field), 0));
+        
+        dprintf("p%d: sending black token\n", myProcessRank);
+        char tokenColor = TOKEN_COLOR_BLACK;
+        MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+    }
     
     ///////
     
@@ -345,6 +435,8 @@ void processUsingStack2(Field field) {
         counter++;
         if ((counter % CHECK_MSG_AMOUNT)==0)
         {
+            //dprintf("p%d: is checking new messages\n", myProcessRank);
+            
             counter=1;
             int flag = 0;
             MPI_Status status;
@@ -352,39 +444,86 @@ void processUsingStack2(Field field) {
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
             if (flag)
             {
-                //prisla zprava, je treba ji obslouzit
-                //v promenne status je tag (status.MPI_TAG), cislo odesilatele (status.MPI_SOURCE)
-                //a pripadne cislo chyby (status.MPI_ERROR)
-                swith (status.MPI_TAG)
-                {
-                case MSG_WORK_REQUEST : // zadost o praci, prijmout a dopovedet
-                    // zaslat rozdeleny zasobnik a nebo odmitnuti MSG_WORK_NOWORK
+                if (status.MPI_TAG == MSG_WORK_REQUEST) {
+                    
+                    dprintf("p%d: did receive work request\n", myProcessRank);
+                    receiveDummy();
                     workRequests.push_back(status.MPI_SOURCE);
-                    break;
-                case MSG_WORK_SENT : // prisel rozdeleny zasobnik, prijmout
-                    // deserializovat a spustit vypocet
-                    break;
-                case MSG_WORK_NOWORK : // odmitnuti zadosti o praci
-                    // zkusit jiny proces
-                    // a nebo se prepnout do pasivniho stavu a cekat na token
-                    if (stack.size()==0) {
-                        sendWorkRequest();
-                    }
-                    break
-                case MSG_TOKEN : //ukoncovaci token, prijmout a nasledne preposlat
-                    // - bily nebo cerny v zavislosti na stavu procesu
-                    //MPI_Send(<#void *buf#>, <#int count#>, <#MPI_Datatype datatype#>, <#int dest#>, MSG_TOKEN, MPI_COMM_WORLD);
-                    break;
-                case MSG_FINISH : //konec vypoctu - proces 0 pomoci tokenu zjistil, ze jiz nikdo nema praci
-                    //a rozeslal zpravu ukoncujici vypocet
-                    //mam-li reseni, odeslu procesu 0
-                    //nasledne ukoncim spoji cinnost
-                    //jestlize se meri cas, nezapomen zavolat koncovou barieru MPI_Barrier (MPI_COMM_WORLD)
-                    return;
-                    break;
-                default : chyba("neznamy typ zpravy"); break;
                 }
+                else if (status.MPI_TAG == MSG_WORK_SENT) {
+                    
+                    dprintf("p%d: did receive work\n", myProcessRank);
+                    Item* item = new Item();
+                    item->receive();
+                    stack.push_back(item);
+                    waitingForWork = false;
+                }
+                else if (status.MPI_TAG == MSG_WORK_NOWORK) {
+                 
+                    dprintf("p%d: did receive no work\n", myProcessRank);
+                    sendWorkRequest();
+                }
+                else if (status.MPI_TAG == MSG_TOKEN) {
+                    
+                    dprintf("p%d: did receive token\n", myProcessRank);
+                    
+                    char tokenColor;
+                    MPI_Recv(&tokenColor, 1, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                    
+                    if (myProcessRank==0) {
+                        
+                        if (stack.size()) {
+                            dprintf("p%d: sending black token\n", myProcessRank);
+                            tokenColor = TOKEN_COLOR_BLACK;
+                            MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+                        }
+                        else if (tokenColor==TOKEN_COLOR_BLACK) {
+                            dprintf("p%d: sending white token\n", myProcessRank);
+                            tokenColor = TOKEN_COLOR_WHITE;
+                            MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+                        }
+                        else {
+                            dprintf("p%d: FINITO\n", myProcessRank);
+                            
+                            for (int i=1; i<numProcesses; i++) {
+                                
+                                dprintf("p%d: sending finish to %d\n", myProcessRank, i);
+                                int dummy=0;
+                                MPI_Send(&dummy, 1, MPI_INT, i, MSG_FINISH, MPI_COMM_WORLD);
+                            }
+                            
+                            return;
+                        }
+                    }
+                    else {
+                        
+                        if (tokenColor == TOKEN_COLOR_WHITE) {
+                            if (stack.size()!=0) {
+                                tokenColor = TOKEN_COLOR_BLACK;
+                            }
+                        }
+                        
+                        int destination = (status.MPI_SOURCE+1)%numProcesses;
+                        
+                        if (tokenColor==TOKEN_COLOR_BLACK) {
+                            dprintf("p%d: sending black token\n", myProcessRank);
+                        }
+                        else {
+                            dprintf("p%d: sending white token\n", myProcessRank);
+                        }
+                        
+                        MPI_Send(&tokenColor, 1, MPI_CHAR, destination, MSG_TOKEN, MPI_COMM_WORLD);
+                    }
+
+                }
+                else if (status.MPI_TAG == MSG_FINISH) {
+                    dprintf("p%d: did receive finish\n", myProcessRank);
+                    receiveDummy();
+                    return;
+                }
+              
             }
+            
         }
         
         ////////
@@ -393,6 +532,11 @@ void processUsingStack2(Field field) {
             
             Item* pItem = stack.back();
             Field* pField = pItem->field;
+            
+            /*if (myProcessRank==1) {
+                dprintf("p%d: is processing stack of size %d\n", myProcessRank, (int)stack.size());
+                dprintf("p%d: rect id %d\n", myProcessRank, pItem->index);
+            }*/
             
             Rect* pRectToTry = NULL;
             
@@ -448,9 +592,13 @@ void processUsingStack2(Field field) {
             //empty stack? request work and send no work to all work requests
             if (stack.size()==0) {
                 
+                dprintf("p%d: no more work\n", myProcessRank);
+                
                 while (workRequests.size()) {
                     
                     int destination = workRequests.front();
+                    
+                    dprintf("p%d: is sending no work to %d\n", myProcessRank, destination);
                     
                     //send no work
                     int dummy=0;
@@ -460,10 +608,13 @@ void processUsingStack2(Field field) {
                 }
                 
                 //request work
-                int dummy=0;
-                MPI_Send(&dummy, 1, MPI_INT, destination, MSG_WORK_REQUEST, MPI_COMM_WORLD);
+                sendWorkRequest();
             }
             
+        }
+        else {
+            //dprintf("p%d: no work\n", myProcessRank);
+            sendWorkRequest();
         }
 
         
@@ -473,7 +624,7 @@ void processUsingStack2(Field field) {
 
 //-----------------------------------------------
 
-int main(int argc, const char * argv[])
+int main(int argc, char * argv[])
 {
     
     MPI_Init(&argc, &argv);
@@ -486,7 +637,9 @@ int main(int argc, const char * argv[])
     
     srand(myProcessRank);
     
-    Field field = Field(6, 5);
+    printf("%d processes, mine is %d\n", numProcesses, myProcessRank);
+    
+    Field field = Field(FIELD_WIDTH, FIELD_HEIGHT);
     
     processUsingStack2(field);
     
@@ -494,7 +647,6 @@ int main(int argc, const char * argv[])
     std::cout << "best result " << bestResult << std::endl;
     
     MPI_Finalize();
-    MPI
     
     return 0;
 }
