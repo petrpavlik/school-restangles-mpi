@@ -9,8 +9,12 @@
 #include <iostream>
 #include <list>
 #include "mpi.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
-#define dprintf printf
+//#define dprintf printf
+#define dprintf
 
 #define CHECK_MSG_AMOUNT  100
 
@@ -20,8 +24,8 @@
 #define MSG_TOKEN        1003
 #define MSG_FINISH       1004
 
-#define FIELD_WIDTH 6
-#define FIELD_HEIGHT 5
+#define FIELD_WIDTH 200
+#define FIELD_HEIGHT 200
 
 #define TOKEN_COLOR_WHITE 0
 #define TOKEN_COLOR_BLACK 1
@@ -402,14 +406,14 @@ void receiveDummy() {
 
 void sendToken(int destination, char tokenColor) {
     
-    int bufferSize = sizeof(chat) + sizeof(int);
+    int bufferSize = sizeof(char) + sizeof(int);
     char* buffer = new char[bufferSize];
     
     int position = 0;
     MPI_Pack(&tokenColor, 1, MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
     MPI_Pack(&bestResult, 1, MPI_INT, buffer, bufferSize, &position, MPI_COMM_WORLD);
     
-    MPI_Send(buffer, position, MPI_PACKED, destination, MSG_WORK_SENT, MPI_COMM_WORLD);
+    MPI_Send(buffer, position, MPI_PACKED, destination, MSG_TOKEN, MPI_COMM_WORLD);
     
     delete[] buffer;
 }
@@ -425,7 +429,7 @@ void processUsingStack2(Field field) {
         
         dprintf("p%d: sending black token\n", myProcessRank);
         char tokenColor = TOKEN_COLOR_BLACK;
-        MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+        sendToken(1, tokenColor);
     }
     
     ///////
@@ -467,20 +471,35 @@ void processUsingStack2(Field field) {
                     
                     dprintf("p%d: did receive token\n", myProcessRank);
                     
+                    int position = 0;
+                    int bufferSize = sizeof(char) + sizeof(int);
+                    char* buffer = new char[bufferSize];
+                    
                     char tokenColor;
-                    MPI_Recv(&tokenColor, 1, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                    char receivedBestResult;
+                    MPI_Recv(buffer, bufferSize, MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                    
+                    MPI_Unpack(buffer, bufferSize, &position, &tokenColor, 1, MPI_CHAR, MPI_COMM_WORLD);
+                    MPI_Unpack(buffer, bufferSize, &position, &receivedBestResult, 1, MPI_INT, MPI_COMM_WORLD);
+                    
+                    if (bestResult==-1 && receivedBestResult!=-1) {
+                        bestResult = receivedBestResult;
+                    }
+                    else if (bestResult!=-1 && receivedBestResult!=-1 && bestResult>receivedBestResult) {
+                        bestResult = receivedBestResult;
+                    }
                     
                     if (myProcessRank==0) {
                         
                         if (stack.size()) {
                             dprintf("p%d: sending black token\n", myProcessRank);
                             tokenColor = TOKEN_COLOR_BLACK;
-                            MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+                            sendToken(1, tokenColor);
                         }
                         else if (tokenColor==TOKEN_COLOR_BLACK) {
                             dprintf("p%d: sending white token\n", myProcessRank);
                             tokenColor = TOKEN_COLOR_WHITE;
-                            MPI_Send(&tokenColor, 1, MPI_CHAR, 1, MSG_TOKEN, MPI_COMM_WORLD);
+                            sendToken(1, tokenColor);
                         }
                         else {
                             dprintf("p%d: FINITO\n", myProcessRank);
@@ -512,7 +531,7 @@ void processUsingStack2(Field field) {
                             dprintf("p%d: sending white token\n", myProcessRank);
                         }
                         
-                        MPI_Send(&tokenColor, 1, MPI_CHAR, destination, MSG_TOKEN, MPI_COMM_WORLD);
+                        sendToken(destination, tokenColor);
                     }
 
                 }
@@ -568,10 +587,11 @@ void processUsingStack2(Field field) {
                 //send this to somebody who has requested some work
                 if (workRequests.size()) {
                     
-                    int desctination = workRequests.front();
-                    pItem->send(desctination);
+                    int destination = workRequests.front();
+                    pItem->send(destination);
                     workRequests.pop_front();
                     delete pNewField;
+                    pItem->index = 5;
                 }
                 else {
                     
@@ -629,6 +649,10 @@ int main(int argc, char * argv[])
     
     MPI_Init(&argc, &argv);
     
+    double tStart, tEnd;
+    
+    tStart = MPI_Wtime ();
+    
     /* find out process rank */
     MPI_Comm_rank(MPI_COMM_WORLD, &myProcessRank);
     
@@ -643,8 +667,12 @@ int main(int argc, char * argv[])
     
     processUsingStack2(field);
     
-    std::cout << "num steps " << steps << std::endl;
-    std::cout << "best result " << bestResult << std::endl;
+    tEnd = MPI_Wtime();
+    
+    //std::cout << "num steps " << steps << std::endl;
+    //std::cout << "best result " << bestResult << std::endl;
+    printf("p%d: best result %d\n", myProcessRank, bestResult);
+    printf("time %fs\n", tEnd-tStart);
     
     MPI_Finalize();
     
