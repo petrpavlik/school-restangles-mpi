@@ -13,8 +13,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define dprintf printf
-//#define dprintf
+//#define dprintf printf
+#define dprintf
 
 #define CHECK_MSG_AMOUNT  100
 
@@ -24,8 +24,8 @@
 #define MSG_TOKEN        1003
 #define MSG_FINISH       1004
 
-#define FIELD_WIDTH 150
-#define FIELD_HEIGHT 150
+#define FIELD_WIDTH 200
+#define FIELD_HEIGHT 200
 
 #define TOKEN_COLOR_WHITE 0
 #define TOKEN_COLOR_BLACK 1
@@ -378,7 +378,7 @@ struct Item
 
 void sendWorkRequest() {
     
-    if (waitingForWork) {
+    if (waitingForWork || bestResult==0) {
         return;
     }
     
@@ -404,7 +404,17 @@ void receiveDummy() {
     MPI_Recv(&dummy, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 }
 
+void printBuffer(char* buffer, int bufferSize) {
+    
+    for (unsigned int i=0; i<bufferSize; i++) {
+        dprintf("%d", buffer[i]);
+    }
+    dprintf("\n");
+}
+
 void sendToken(int destination, char tokenColor) {
+    
+    dprintf("p%d: sending token %d, best result %d\n", myProcessRank, tokenColor, bestResult);
     
     int bufferSize = sizeof(char) + sizeof(int);
     char* buffer = new char[bufferSize];
@@ -412,6 +422,8 @@ void sendToken(int destination, char tokenColor) {
     int position = 0;
     MPI_Pack(&tokenColor, 1, MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
     MPI_Pack(&bestResult, 1, MPI_INT, buffer, bufferSize, &position, MPI_COMM_WORLD);
+    
+    printBuffer(buffer, bufferSize);
     
     MPI_Send(buffer, position, MPI_PACKED, destination, MSG_TOKEN, MPI_COMM_WORLD);
     
@@ -427,7 +439,7 @@ void processUsingStack2(Field field) {
     if (myProcessRank==0) {
         stack.push_back(new Item(new Field(field), 0));
         
-        dprintf("p%d: sending black token\n", myProcessRank);
+        dprintf("p%d: sending black token to %d\n", myProcessRank, 1);
         char tokenColor = TOKEN_COLOR_BLACK;
         sendToken(1, tokenColor);
     }
@@ -469,18 +481,26 @@ void processUsingStack2(Field field) {
                 }
                 else if (status.MPI_TAG == MSG_TOKEN) {
                     
-                    dprintf("p%d: did receive token\n", myProcessRank);
-                    
                     int position = 0;
                     int bufferSize = sizeof(char) + sizeof(int);
                     char* buffer = new char[bufferSize];
                     
                     char tokenColor;
-                    char receivedBestResult;
+                    int receivedBestResult;
                     MPI_Recv(buffer, bufferSize, MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                     
+                    printBuffer(buffer, bufferSize);
                     MPI_Unpack(buffer, bufferSize, &position, &tokenColor, 1, MPI_CHAR, MPI_COMM_WORLD);
                     MPI_Unpack(buffer, bufferSize, &position, &receivedBestResult, 1, MPI_INT, MPI_COMM_WORLD);
+                    
+                    dprintf("p%d: received token: %d, best result %d\n", myProcessRank, tokenColor, receivedBestResult);
+                    
+                    if (tokenColor == TOKEN_COLOR_WHITE) {
+                        dprintf("p%d: did receive WHITE token from %d\n", myProcessRank, status.MPI_SOURCE);
+                    }
+                    else {
+                        dprintf("p%d: did receive BLACK token from %d\n", myProcessRank, status.MPI_SOURCE);
+                    }
                     
                     if (bestResult==-1 && receivedBestResult!=-1) {
                         bestResult = receivedBestResult;
@@ -489,9 +509,41 @@ void processUsingStack2(Field field) {
                         bestResult = receivedBestResult;
                     }
                     
+                    if (bestResult==0) {
+                        dprintf("p%d: recognized best result 0\n", myProcessRank);
+                        stack.clear();
+                    }
+                    
                     if (myProcessRank==0) {
                         
-                        if (stack.size()) {
+                        if (bestResult==0 || tokenColor==TOKEN_COLOR_WHITE) {
+                            
+                            dprintf("p%d: FINITO\n", myProcessRank);
+                            
+                            for (int i=1; i<numProcesses; i++) {
+                                
+                                dprintf("p%d: sending finish to %d\n", myProcessRank, i);
+                                int dummy=0;
+                                MPI_Send(&dummy, 1, MPI_INT, i, MSG_FINISH, MPI_COMM_WORLD);
+                            }
+                            
+                            return;
+                        }
+                        else {
+                            
+                            if (stack.size()) {
+                                dprintf("p%d: sending black token to %d\n", myProcessRank, 1);
+                                tokenColor = TOKEN_COLOR_BLACK;
+                                sendToken(1, tokenColor);
+                            }
+                            else {
+                                dprintf("p%d: sending white token to %d\n", myProcessRank, 1);
+                                tokenColor = TOKEN_COLOR_WHITE;
+                                sendToken(1, tokenColor);
+                            }
+                        }
+                        
+                        /*if (stack.size()) {
                             dprintf("p%d: sending black token\n", myProcessRank);
                             tokenColor = TOKEN_COLOR_BLACK;
                             sendToken(1, tokenColor);
@@ -512,9 +564,16 @@ void processUsingStack2(Field field) {
                             }
                             
                             return;
-                        }
+                        }*/
                     }
                     else {
+                        
+                        if (tokenColor == TOKEN_COLOR_BLACK) {
+                            dprintf("p%d: BLACK token\n", myProcessRank);
+                        }
+                        else {
+                            dprintf("p%d: WHITE token\n", myProcessRank);
+                        }
                         
                         if (tokenColor == TOKEN_COLOR_WHITE) {
                             if (stack.size()!=0) {
@@ -522,13 +581,13 @@ void processUsingStack2(Field field) {
                             }
                         }
                         
-                        int destination = (status.MPI_SOURCE+1)%numProcesses;
+                        int destination = (myProcessRank+1)%numProcesses;
                         
                         if (tokenColor==TOKEN_COLOR_BLACK) {
-                            dprintf("p%d: sending black token\n", myProcessRank);
+                            dprintf("p%d: sending black token to %d\n", myProcessRank, destination);
                         }
                         else {
-                            dprintf("p%d: sending white token\n", myProcessRank);
+                            dprintf("p%d: sending white token to %d\n", myProcessRank, destination);
                         }
                         
                         sendToken(destination, tokenColor);
