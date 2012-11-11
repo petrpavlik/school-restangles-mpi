@@ -13,8 +13,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-//#define dprintf printf
-#define dprintf
+#define dprintf printf
+//#define dprintf
 
 #define CHECK_MSG_AMOUNT  100
 
@@ -24,8 +24,8 @@
 #define MSG_TOKEN        1003
 #define MSG_FINISH       1004
 
-#define FIELD_WIDTH 200
-#define FIELD_HEIGHT 200
+#define FIELD_WIDTH 150
+#define FIELD_HEIGHT 150
 
 #define TOKEN_COLOR_WHITE 0
 #define TOKEN_COLOR_BLACK 1
@@ -317,7 +317,7 @@ struct Item
     
     void send(int destination) {
         
-        dprintf("p%d: did start sending work\n", myProcessRank);
+        dprintf("p%d: did start sending work to %d\n", myProcessRank, destination);
         int bufferSize = field->getWidth() * field->getHeight() + sizeof(int);
         char* buffer = new char[bufferSize];
         
@@ -325,16 +325,16 @@ struct Item
         MPI_Pack(&index, 1, MPI_INT, buffer, bufferSize, &position, MPI_COMM_WORLD);
         MPI_Pack(field->getArray(), (field->getWidth() * field->getHeight()), MPI_CHAR, buffer, bufferSize, &position, MPI_COMM_WORLD);
         
-        for (unsigned int i=0; i<bufferSize; i++) {
+        /*for (unsigned int i=0; i<bufferSize; i++) {
             dprintf("%d", buffer[i]);
         }
-        dprintf("\n");
+        dprintf("\n");*/
         
         MPI_Send(buffer, position, MPI_PACKED, destination, MSG_WORK_SENT, MPI_COMM_WORLD);
         
         delete[] buffer;
         
-        dprintf("p%d: did finish sending work\n", myProcessRank);
+        dprintf("p%d: did finish sending work to %d\n", myProcessRank, destination);
     }
     
     void receive() {
@@ -351,10 +351,10 @@ struct Item
         MPI_Status status;
         MPI_Recv(buffer, bufferSize, MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         
-        for (unsigned int i=0; i<bufferSize; i++) {
+        /*for (unsigned int i=0; i<bufferSize; i++) {
             dprintf("%d", buffer[i]);
         }
-        dprintf("\n");
+        dprintf("\n");*/
         
         MPI_Unpack(buffer, bufferSize, &position, &index, 1, MPI_INT, MPI_COMM_WORLD);
         
@@ -549,6 +549,29 @@ void processUsingStack2(Field field) {
         
         if (stack.size()) {
             
+            if (workRequests.size()) {
+                
+                std::list<Item*>::const_iterator iterator;
+                for (iterator = stack.begin(); iterator != stack.end(); ++iterator) {
+                    
+                    Item* pItem = *iterator;
+                    
+                    if (pItem->index>3) {
+                        continue;
+                    }
+                    
+                    int destination = workRequests.front();
+                    
+                    pItem->index++;
+                    pItem->send(destination);
+                    pItem->index=5;
+                    
+                    workRequests.pop_front();
+                    break;
+                }
+            }
+            
+            
             Item* pItem = stack.back();
             Field* pField = pItem->field;
             
@@ -585,7 +608,7 @@ void processUsingStack2(Field field) {
                 Field* pNewField = new Field(*pField);
                 
                 //send this to somebody who has requested some work
-                if (workRequests.size()) {
+                /*if (workRequests.size()) {
                     
                     int destination = workRequests.front();
                     pItem->send(destination);
@@ -602,6 +625,15 @@ void processUsingStack2(Field field) {
                     else {
                         delete pNewField;
                     }
+                }*/
+                
+                
+                if(pNewField->addRect(*pRectToTry)) {
+                    
+                    stack.push_back(new Item(pNewField, 0));
+                }
+                else {
+                    delete pNewField;
                 }
                 
                 
@@ -649,6 +681,8 @@ int main(int argc, char * argv[])
     
     MPI_Init(&argc, &argv);
     
+    MPI_Barrier(MPI_COMM_WORLD);
+    
     double tStart, tEnd;
     
     tStart = MPI_Wtime ();
@@ -673,6 +707,8 @@ int main(int argc, char * argv[])
     //std::cout << "best result " << bestResult << std::endl;
     printf("p%d: best result %d\n", myProcessRank, bestResult);
     printf("time %fs\n", tEnd-tStart);
+    
+    MPI_Barrier(MPI_COMM_WORLD);
     
     MPI_Finalize();
     
