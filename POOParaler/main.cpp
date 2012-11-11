@@ -24,8 +24,8 @@
 #define MSG_TOKEN        1003
 #define MSG_FINISH       1004
 
-#define FIELD_WIDTH 200
-#define FIELD_HEIGHT 200
+int fieldWidth = 6;
+int fieldHeight = 5;
 
 #define TOKEN_COLOR_WHITE 0
 #define TOKEN_COLOR_BLACK 1
@@ -341,7 +341,7 @@ struct Item
         
         dprintf("p%d: did start receiving work\n", myProcessRank);
         
-        field = new Field(FIELD_WIDTH, FIELD_HEIGHT);
+        field = new Field(fieldWidth, fieldHeight);
         
         int bufferSize = field->getWidth() * field->getHeight() + sizeof(int);
         char* buffer = new char[bufferSize];
@@ -738,6 +738,11 @@ void processUsingStack2(Field field) {
 int main(int argc, char * argv[])
 {
     
+    if (argc>1) {
+        fieldWidth = atoi(argv[1]);
+        fieldHeight = atoi(argv[2]);
+    }
+    
     MPI_Init(&argc, &argv);
     
     MPI_Barrier(MPI_COMM_WORLD);
@@ -756,16 +761,14 @@ int main(int argc, char * argv[])
     
     printf("%d processes, mine is %d\n", numProcesses, myProcessRank);
     
-    Field field = Field(FIELD_WIDTH, FIELD_HEIGHT);
+    Field field = Field(fieldWidth, fieldHeight);
     
     processUsingStack2(field);
     
     tEnd = MPI_Wtime();
     
-    //std::cout << "num steps " << steps << std::endl;
-    //std::cout << "best result " << bestResult << std::endl;
     printf("p%d: best result %d\n", myProcessRank, bestResult);
-    printf("time %fs\n", tEnd-tStart);
+    printf("p%d: time %fs\n", myProcessRank , tEnd-tStart);
     
     MPI_Barrier(MPI_COMM_WORLD);
     
